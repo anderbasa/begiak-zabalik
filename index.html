@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ander — Begiak zabalik</title>
 <meta name="description" content="Archivo fotográfico de Ander. Naturaleza, viajes y calle, tal y como los encontré.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Begiak zabalik">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23000'/%3E%3Cpath d='M3.5 16c3.2-5.4 7.6-8.1 12.5-8.1S25.3 10.6 28.5 16c-3.2 5.4-7.6 8.1-12.5 8.1S6.7 21.4 3.5 16z' fill='none' stroke='%23f4f2ef' stroke-width='1.7'/%3E%3Ccircle cx='16' cy='16' r='5.7' fill='%236a93b8'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23000'/%3E%3Ccircle cx='18' cy='14' r='1.05' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -487,7 +494,22 @@ body.studio .studio-inner{transform:none}
 
 /* ---------- intro film ---------- */
 #intro{position:fixed;inset:0;z-index:200;background:#000;display:grid;place-items:center;overflow:hidden}
+.eye-frame{position:absolute;inset:0}
 #film{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* Upright screens: the landscape film would lose ~70% of its sides, so it is framed whole
+   across the width (pupil on the centre line), fades into black above and below, and the
+   camera pushes in as the film nears the pupil (--ez is driven from JS). */
+@media (orientation:portrait){
+  .eye-frame{
+    inset:auto;left:50%;top:50%;
+    width:118vw;height:calc(118vw * 9 / 16);
+    transform-origin:53% 50%;
+    transform:translate(-53%, -50%) scale(var(--ez, 1));
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 76%, transparent 100%);
+            mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 76%, transparent 100%);
+    will-change:transform;
+  }
+}
 /* blue-eye pass: the film redrawn through a shader that turns only the green iris blue */
 #eye{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;pointer-events:none}
 #eye.on{opacity:1}
@@ -728,7 +750,9 @@ body.studio .studio-inner{transform:none}
 </div>
 
 <div id="intro">
-  <video id="film" src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260922_195107_ed3f055a-3a13-4a71-b743-e10310454246.mp4" crossorigin="anonymous" muted playsinline webkit-playsinline autoplay preload="auto" disablepictureinpicture></video>
+  <div class="eye-frame">
+    <video id="film" src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260922_195107_ed3f055a-3a13-4a71-b743-e10310454246.mp4" crossorigin="anonymous" muted playsinline webkit-playsinline autoplay preload="auto" disablepictureinpicture></video>
+  </div>
   <div class="fallback"></div>
   <button id="skip" class="skip" type="button">Saltar</button>
 </div>
@@ -1043,19 +1067,25 @@ body.studio .studio-inner{transform:none}
 
   /* ================= layout ================= */
   let R = 300, persp = 1150, lastW = -1, lastH = -1;
+  let headK = 0.62; // how far the title sits in front of the sphere centre, as a share of R
   let lastWorld = '', lastHead = '', lastHOp = '', lastOrb = '';
 
   function layout(force) {
     const w = window.innerWidth, h = window.innerHeight;
     if (!force && Math.abs(w - lastW) < 20 && Math.abs(h - lastH) < 20) return;
     lastW = w; lastH = h;
+    // Phones held upright get their own proportions: the sphere is limited by the narrow width,
+    // so it grows past the edges a little, with bigger photos and a closer camera for more depth.
+    // Everything wider than 640px (computers, tablets, landscape) keeps the original values.
+    const phone = w <= 640 && h > w;
     const hr = w <= 380 ? 0.38 : w <= 640 ? 0.42 : 0.46;
-    const wr = w <= 380 ? 0.48 : w <= 640 ? 0.52 : 0.58;
+    const wr = phone ? (w <= 380 ? 0.58 : 0.6) : (w <= 380 ? 0.48 : w <= 640 ? 0.52 : 0.58);
     const floor = w <= 380 ? 108 : w <= 640 ? 120 : 155;
     R = Math.max(floor, Math.min(480, h * hr, w * wr));
-    const scale = w <= 380 ? 0.44 : w <= 640 ? 0.46 : 0.47;
+    const scale = phone ? (w <= 380 ? 0.56 : 0.58) : (w <= 380 ? 0.44 : w <= 640 ? 0.46 : 0.47);
     const cw = Math.round(Math.max(cardScale < 1 ? 56 : 72, R * scale * cardScale));
-    persp = w <= 380 ? 620 : w <= 640 ? 760 : w <= 900 ? 920 : 1150;
+    persp = phone ? (w <= 380 ? 600 : 680) : (w <= 380 ? 620 : w <= 640 ? 760 : w <= 900 ? 920 : 1150);
+    headK = phone ? 0.7 : 0.62; // bigger phone photos would cover the title too often
     doc.style.setProperty('--persp', persp + 'px');
     orb.style.setProperty('--cw', cw + 'px');
     for (const c of cards) {
@@ -1193,6 +1223,26 @@ body.studio .studio-inner{transform:none}
     }
     ['loadeddata', 'seeked', 'playing'].forEach((ev) => film.addEventListener(ev, draw));
     if (film.readyState >= 2) draw();
+  })();
+
+  /* Upright screens only: start with the whole eye, then push in towards the pupil so the iris
+     fills the screen by the time the photos sprout. Landscape screens are untouched (scale 1). */
+  (function eyePushIn() {
+    const frameEl = intro.querySelector('.eye-frame');
+    const portraitMQ = window.matchMedia('(orientation: portrait)');
+    let last = '';
+    const tick = () => {
+      if (!intro.isConnected) return;
+      let s = 1;
+      if (portraitMQ.matches) {
+        const u = Math.min(1, Math.max(0, ((film.currentTime || 0) - 2.2) / (5.3 - 2.2)));
+        s = 1 + 3 * u * u * (3 - 2 * u); // up to 4x, eased
+      }
+      const v = s.toFixed(4);
+      if (v !== last) { frameEl.style.setProperty('--ez', v); last = v; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   })();
 
   ['loadeddata', 'canplay', 'canplaythrough'].forEach((ev) => film.addEventListener(ev, () => report('film')));
@@ -1340,7 +1390,7 @@ body.studio .studio-inner{transform:none}
     if (wt !== lastWorld) { world.style.transform = wt; lastWorld = wt; }
 
     // Counter-rotate the title so it faces the camera on the sphere origin, then push it forward.
-    const ht = 'rotateX(' + (-sx).toFixed(3) + 'deg) rotateY(' + (-sy).toFixed(3) + 'deg) translateZ(' + (R * 0.62).toFixed(2) + 'px)';
+    const ht = 'rotateX(' + (-sx).toFixed(3) + 'deg) rotateY(' + (-sy).toFixed(3) + 'deg) translateZ(' + (R * headK).toFixed(2) + 'px)';
     if (ht !== lastHead) { headline.style.transform = ht; lastHead = ht; }
     const ho = Math.max(0, 1 - p * 0.55).toFixed(3);
     if (ho !== lastHOp) { headline.style.opacity = ho; lastHOp = ho; }
@@ -1445,8 +1495,10 @@ body.studio .studio-inner{transform:none}
       beginDrag(e);
     }
     const now = performance.now();
-    const ddx = (e.clientX - ptr.x) * 0.13;
-    const ddy = -(e.clientY - ptr.y) * 0.13;
+    // a finger crosses a narrow screen: give it ~2.5x the turn of a mouse pixel
+    const perPx = ptr.type === 'touch' ? 0.32 : 0.13;
+    const ddx = (e.clientX - ptr.x) * perPx;
+    const ddy = -(e.clientY - ptr.y) * perPx;
     dragX += ddx;
     dragY += ddy;
     const k = 16.67 / Math.max(6, now - ptr.lt);
